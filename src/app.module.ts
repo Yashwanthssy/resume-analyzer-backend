@@ -11,12 +11,22 @@ class AppController {
     return {
       status: 'ok',
       message: 'AI Resume Analyzer API is running',
+      timestamp: new Date().toISOString(),
       endpoints: {
         analyze: 'POST /resume/analyze',
         history: 'GET /resume/history',
         historyById: 'GET /resume/history/:id',
         deleteHistory: 'DELETE /resume/history/:id'
       }
+    };
+  }
+
+  @Get('health')
+  healthCheck() {
+    return {
+      status: 'healthy',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString()
     };
   }
 }
@@ -31,6 +41,8 @@ class AppController {
       url: process.env.DATABASE_URL,
       autoLoadEntities: true,
       synchronize: true, // Set to false in production
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      logging: process.env.NODE_ENV !== 'production',
     }),
     ResumeModule,
     GroqModule,
