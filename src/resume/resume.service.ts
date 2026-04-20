@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 const pdfParse = require('pdf-parse');
 import { ResumeAnalysis } from './entities/resume-analysis.entity';
 import { GroqService } from '../groq/groq.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class ResumeService {
@@ -109,5 +110,78 @@ export class ResumeService {
     }
 
     return { success: true, message: 'Analysis deleted successfully' };
+  }
+
+  // Guest analysis method (no database save)
+  async analyzeResumeGuest(file: Express.Multer.File, jobDescription: string) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    if (!jobDescription || jobDescription.trim() === '') {
+      throw new BadRequestException('Job description is required');
+    }
+
+    // Extract text from PDF
+    let resumeText: string;
+    try {
+      const pdfData = await pdfParse(file.buffer);
+      resumeText = pdfData.text;
+
+      // Validate PDF has sufficient text content
+      if (!resumeText || resumeText.trim().length < 100) {
+        throw new BadRequestException(
+          'Your PDF appears to be image-based or empty. Please use a text-based PDF.'
+        );
+      }
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to parse PDF file');
+    }
+
+    // Analyze with Groq AI
+    const analysisResult = await this.groqService.analyzeResume(resumeText, jobDescription);
+
+    // Return analysis without saving to database
+    return {
+      success: true,
+      data: {
+        id: uuidv4(), // Generate temporary ID for frontend
+        fileName: file.originalname,
+        matchScore: analysisResult.matchScore,
+        summary: analysisResult.summary,
+        strengths: analysisResult.strengths,
+        missingKeywords: analysisResult.missingKeywords,
+        suggestions: analysisResult.suggestions,
+        verdict: analysisResult.verdict,
+      },
+    };
+  }
+
+  // Migrate guest data to user account
+  async migrateGuestData(guestAnalyses: any[], userId: string) {
+    try {
+      const analysesToSave = guestAnalyses.map(guestAnalysis => {
+        return this.resumeRepository.create({
+          fileName: guestAnalysis.fileName,
+          jobDescription: guestAnalysis.jobDescription,
+          analysisResult: guestAnalysis.analysisResult,
+          userId,
+          createdAt: new Date(guestAnalysis.createdAt),
+        });
+      });
+
+      await this.resumeRepository.save(analysesToSave);
+
+      return {
+        success: true,
+        message: `Successfully migrated ${analysesToSave.length} analyses to your account`,
+      };
+    } catch (error) {
+      console.error('Migration error:', error);
+      throw new BadRequestException('Failed to migrate guest data');
+    }
   }
 }
