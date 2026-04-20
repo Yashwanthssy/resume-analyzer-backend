@@ -7,9 +7,9 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "start": "node dist/src/main",
+    "start": "node dist/main.js",
     "start:dev": "nest start --watch",
-    "start:prod": "node dist/src/main",
+    "start:prod": "node dist/main",
     "build": "nest build"
   },
   "dependencies": {
