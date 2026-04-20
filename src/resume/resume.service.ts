@@ -13,7 +13,7 @@ export class ResumeService {
     private groqService: GroqService,
   ) {}
 
-  async analyzeResume(file: Express.Multer.File, jobDescription: string) {
+  async analyzeResume(file: Express.Multer.File, jobDescription: string, userId: string) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
@@ -27,7 +27,17 @@ export class ResumeService {
     try {
       const pdfData = await pdfParse(file.buffer);
       resumeText = pdfData.text;
+
+      // Validate PDF has sufficient text content
+      if (!resumeText || resumeText.trim().length < 100) {
+        throw new BadRequestException(
+          'Your PDF appears to be image-based or empty. Please use a text-based PDF.'
+        );
+      }
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       throw new BadRequestException('Failed to parse PDF file');
     }
 
@@ -37,10 +47,9 @@ export class ResumeService {
     // Save to database
     const analysis = this.resumeRepository.create({
       fileName: file.originalname,
-
-      
       jobDescription,
       analysisResult,
+      userId,
     });
 
     const savedAnalysis = await this.resumeRepository.save(analysis);
@@ -60,8 +69,9 @@ export class ResumeService {
     };
   }
 
-  async getHistory() {
+  async getHistory(userId: string) {
     const analyses = await this.resumeRepository.find({
+      where: { userId },
       order: { createdAt: 'DESC' },
     });
 
@@ -73,8 +83,10 @@ export class ResumeService {
     }));
   }
 
-  async getAnalysisById(id: string) {
-    const analysis = await this.resumeRepository.findOne({ where: { id } });
+  async getAnalysisById(id: string, userId: string) {
+    const analysis = await this.resumeRepository.findOne({ 
+      where: { id, userId } 
+    });
     
     if (!analysis) {
       throw new BadRequestException('Analysis not found');
@@ -89,8 +101,8 @@ export class ResumeService {
     };
   }
 
-  async deleteAnalysis(id: string) {
-    const result = await this.resumeRepository.delete(id);
+  async deleteAnalysis(id: string, userId: string) {
+    const result = await this.resumeRepository.delete({ id, userId });
     
     if (result.affected === 0) {
       throw new BadRequestException('Analysis not found');

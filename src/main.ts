@@ -12,8 +12,9 @@ async function bootstrap() {
     origin: [
       'http://localhost:4200',
       'http://localhost:3000',
-      'https://your-frontend-domain.vercel.app', // Add your Vercel domain here
-    ],
+      'https://resume-analyzer-frontend-nu-five.vercel.app',
+      process.env.FRONTEND_URL,
+    ].filter(Boolean),
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],

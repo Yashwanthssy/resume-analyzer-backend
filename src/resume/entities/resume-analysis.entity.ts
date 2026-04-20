@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { User } from '../../auth/entities/user.entity';
 
 @Entity('resume_analyses')
 export class ResumeAnalysis {
@@ -24,6 +25,13 @@ export class ResumeAnalysis {
     }>;
     verdict: string;
   };
+
+  @Column()
+  userId: string;
+
+  @ManyToOne(() => User, (user) => user.analyses, { nullable: false })
+  @JoinColumn({ name: 'userId' })
+  user: User;
 
   @CreateDateColumn()
   createdAt: Date;

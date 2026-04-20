@@ -10,20 +10,26 @@ import {
   BadRequestException,
   PayloadTooLargeException,
   Header,
+  UseGuards,
+  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { Throttle } from '@nestjs/throttler';
 import { ResumeService } from './resume.service';
 import { AnalyzeResumeDto } from './dto/analyze-resume.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('resume')
+@UseGuards(JwtAuthGuard)
 export class ResumeController {
   constructor(private readonly resumeService: ResumeService) {}
 
   @Post('analyze')
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @UseInterceptors(
     FileInterceptor('resume', {
-      storage: memoryStorage(),   // ← THIS was the missing line
+      storage: memoryStorage(),
       limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: (req, file, cb) => {
         if (file.mimetype !== 'application/pdf') {
@@ -36,6 +42,7 @@ export class ResumeController {
   async analyzeResume(
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: AnalyzeResumeDto,
+    @Req() req: any,
   ) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
@@ -45,25 +52,25 @@ export class ResumeController {
       throw new PayloadTooLargeException('File size exceeds 5MB');
     }
 
-    return this.resumeService.analyzeResume(file, dto.jobDescription);
+    return this.resumeService.analyzeResume(file, dto.jobDescription, req.user.id);
   }
 
   @Get('history')
   @Header('Cache-Control', 'no-cache, no-store, must-revalidate')
   @Header('Pragma', 'no-cache')
   @Header('Expires', '0')
-  async getHistory() {
-    return this.resumeService.getHistory();
+  async getHistory(@Req() req: any) {
+    return this.resumeService.getHistory(req.user.id);
   }
 
   @Get('history/:id')
   @Header('Cache-Control', 'no-cache, no-store, must-revalidate')
-  async getAnalysisById(@Param('id') id: string) {
-    return this.resumeService.getAnalysisById(id);
+  async getAnalysisById(@Param('id') id: string, @Req() req: any) {
+    return this.resumeService.getAnalysisById(id, req.user.id);
   }
 
   @Delete('history/:id')
-  async deleteAnalysis(@Param('id') id: string) {
-    return this.resumeService.deleteAnalysis(id);
+  async deleteAnalysis(@Param('id') id: string, @Req() req: any) {
+    return this.resumeService.deleteAnalysis(id, req.user.id);
   }
 }
