@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 const pdfParse = require('pdf-parse');
 import { ResumeAnalysis } from './entities/resume-analysis.entity';
 import { GroqService } from '../groq/groq.service';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class ResumeService {
@@ -148,7 +148,7 @@ export class ResumeService {
     return {
       success: true,
       data: {
-        id: uuidv4(), // Generate temporary ID for frontend
+        id: randomUUID(), // Generate temporary ID for frontend
         fileName: file.originalname,
         matchScore: analysisResult.matchScore,
         summary: analysisResult.summary,
